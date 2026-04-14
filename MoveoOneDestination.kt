@@ -22,7 +22,7 @@ import java.net.URL
  * ──────────────────────────────────────────────────
  * INTEGRATION — add this to your Analytics setup:
  *
- *   analytics.add(plugin = MoveoDestination(apiKey = "YOUR_MOVEO_API_KEY"))
+ *   analytics.add(plugin = MoveoOneDestination(apiKey = "YOUR_MOVEO_API_KEY"))
  *
  * That's it. Every track / screen / identify / group call you already make
  * through Segment will automatically be forwarded to Moveo One.
@@ -32,7 +32,7 @@ import java.net.URL
  * @param endpoint Override the default API endpoint (optional).
  * @param debug    When true, request and response details are printed to Logcat.
  */
-class MoveoDestination(
+class MoveoOneDestination(
     private val apiKey: String,
     private val endpoint: String = "https://api.moveo.one/api/analytic/external/segment-destination",
     private val debug: Boolean = false
@@ -42,7 +42,7 @@ class MoveoDestination(
     override lateinit var analytics: Analytics
 
     companion object {
-        private const val TAG = "MoveoDestination"
+        private const val TAG = "MoveoOneDestination"
         private const val CONNECT_TIMEOUT_MS = 10_000
         private const val READ_TIMEOUT_MS = 10_000
     }

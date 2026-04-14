@@ -13,7 +13,7 @@ A Segment destination plugin that forwards every Segment event to Moveo One, so 
 
 ## Installation
 
-Copy [`MoveoDestination.kt`](MoveoDestination.kt) into your project and adjust the package declaration at the top to match your own package.
+Copy [`MoveoOneDestination.kt`](MoveoOneDestination.kt) into your project and adjust the package declaration at the top to match your own package.
 
 Add the Segment SDK dependency to your `build.gradle` if you haven't already:
 
@@ -34,19 +34,19 @@ val analytics = Analytics("YOUR_SEGMENT_WRITE_KEY", applicationContext) {
     trackApplicationLifecycleEvents = true
 }
 
-analytics.add(plugin = MoveoDestination(apiKey = "YOUR_MOVEO_API_KEY"))
+analytics.add(plugin = MoveoOneDestination(apiKey = "YOUR_MOVEO_API_KEY"))
 ```
 
 ### 2. Send events only to Moveo One (bypass Segment)
 
-Set `autoAddSegmentDestination = false` to stop the SDK from forwarding events to Segment's own pipeline. The `MoveoDestination` plugin still receives everything.
+Set `autoAddSegmentDestination = false` to stop the SDK from forwarding events to Segment's own pipeline. The `MoveoOneDestination` plugin still receives everything.
 
 ```kotlin
 val analytics = Analytics("YOUR_SEGMENT_WRITE_KEY", applicationContext) {
     autoAddSegmentDestination = false
 }
 
-analytics.add(plugin = MoveoDestination(apiKey = "YOUR_MOVEO_API_KEY"))
+analytics.add(plugin = MoveoOneDestination(apiKey = "YOUR_MOVEO_API_KEY"))
 ```
 
 Your existing `analytics.track(...)` calls remain unchanged in both cases.
@@ -62,7 +62,7 @@ Your existing `analytics.track(...)` calls remain unchanged in both cases.
 | `debug` | `Boolean` | `false` | Print request and response details to Logcat. |
 
 ```kotlin
-MoveoDestination(
+MoveoOneDestination(
     apiKey   = "YOUR_MOVEO_API_KEY",
     debug    = true   // enable Logcat output during development
 )
@@ -89,4 +89,4 @@ The [`sample/`](sample/) directory contains a minimal Android app that demonstra
 2. In `SampleApp.kt` replace `YOUR_SEGMENT_WRITE_KEY` and `YOUR_MOVEO_API_KEY` with your actual keys.
 3. Run on a device or emulator.
 
-Tap any button — the event fires through Segment and is simultaneously forwarded to Moveo One. Enable `debug = true` in `SampleApp.kt` and filter Logcat by `MoveoDestination` to inspect the raw requests and responses.
+Tap any button — the event fires through Segment and is simultaneously forwarded to Moveo One. Enable `debug = true` in `SampleApp.kt` and filter Logcat by `MoveoOneDestination` to inspect the raw requests and responses.

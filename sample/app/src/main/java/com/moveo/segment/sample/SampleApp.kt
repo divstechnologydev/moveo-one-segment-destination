@@ -22,7 +22,7 @@ class SampleApp : Application() {
             // autoAddSegmentDestination = false
         }
 
-        analytics.add(plugin = MoveoDestination(
+        analytics.add(plugin = MoveoOneDestination(
             apiKey = "YOUR_MOVEO_API_KEY",
             debug = true
         ))
