@@ -75,7 +75,7 @@ class MoveoOneDestination(
     override fun setup(analytics: Analytics) {
         super.setup(analytics)
         this.analytics = analytics
-        scheduler.scheduleAtFixedRate(::flush, flushIntervalMs, flushIntervalMs, TimeUnit.MILLISECONDS)
+        scheduler.scheduleWithFixedDelay(::flush, flushIntervalMs, flushIntervalMs, TimeUnit.MILLISECONDS)
     }
 
     // ──────────────────────────────────────────────────────────────────────────
