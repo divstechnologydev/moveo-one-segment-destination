@@ -9,11 +9,18 @@ import com.segment.analytics.kotlin.core.ScreenEvent
 import com.segment.analytics.kotlin.core.TrackEvent
 import com.segment.analytics.kotlin.core.platform.EventPlugin
 import com.segment.analytics.kotlin.core.platform.Plugin
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.io.IOException
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 
 /**
  * Moveo One Destination Plugin for Segment Analytics (Kotlin)
@@ -30,23 +37,45 @@ import java.net.URL
  * through Segment will automatically be forwarded to Moveo One.
  * ──────────────────────────────────────────────────
  *
- * @param apiKey   Your Moveo One API key.
- * @param endpoint Override the default API endpoint (optional).
- * @param debug    When true, request and response details are printed to Logcat.
+ * @param apiKey          Your Moveo One API key.
+ * @param endpoint        Override the default API endpoint (optional).
+ * @param debug           When true, request and response details are printed to Logcat.
+ * @param batchSize       Number of events that trigger an immediate flush (default 20).
+ * @param flushIntervalMs How often the batch is flushed automatically in ms (default 30s).
+ * @param maxQueueSize    Max events held in the retry queue while offline (default 50).
  */
 class MoveoOneDestination(
     private val apiKey: String,
     private val endpoint: String = "https://api.moveo.one/api/analytic/external/segment-destination",
-    private val debug: Boolean = false
+    private val debug: Boolean = false,
+    private val batchSize: Int = 20,
+    private val flushIntervalMs: Long = 30_000,
+    private val maxQueueSize: Int = 50
 ) : EventPlugin {
 
     override val type = Plugin.Type.Enrichment
     override lateinit var analytics: Analytics
 
+    // Pending events waiting to be sent in the next batch
+    private val batch = mutableListOf<String>()
+    private val batchLock = Any()
+
+    // Failed events waiting to be retried.
+    // Replace with a DB-backed store (e.g. Room) here for persistence across app restarts.
+    private val retryQueue = ConcurrentLinkedQueue<String>()
+
+    private val scheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
+
     companion object {
         private const val TAG = "MoveoOneDestination"
         private const val CONNECT_TIMEOUT_MS = 10_000
         private const val READ_TIMEOUT_MS = 10_000
+    }
+
+    override fun setup(analytics: Analytics) {
+        super.setup(analytics)
+        this.analytics = analytics
+        scheduler.scheduleAtFixedRate(::flush, flushIntervalMs, flushIntervalMs, TimeUnit.MILLISECONDS)
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -75,16 +104,74 @@ class MoveoOneDestination(
     }
 
     // ──────────────────────────────────────────────────────────────────────────
+    // Public API
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Immediately flushes the pending batch and any queued retry events.
+     * Call this when connectivity is restored or before the app goes to background.
+     */
+    override fun flush() {
+        val toSend = synchronized(batchLock) {
+            val copy = batch.toList()
+            batch.clear()
+            copy
+        }
+
+        if (toSend.isEmpty() && retryQueue.isEmpty()) return
+
+        try {
+            drainRetryQueue()
+        } catch (e: Exception) {
+            toSend.forEach { enqueue(it) }
+            if (debug) Log.w(TAG, "Network unavailable — queued ${toSend.size} events (retry queue: ${retryQueue.size}/$maxQueueSize)")
+            return
+        }
+
+        if (toSend.isEmpty()) return
+
+        try {
+            sendBatch(toSend)
+            if (debug) Log.d(TAG, "Sent batch of ${toSend.size} events")
+        } catch (e: Exception) {
+            toSend.forEach { enqueue(it) }
+            if (debug) Log.w(TAG, "Batch failed — queued ${toSend.size} events (retry queue: ${retryQueue.size}/$maxQueueSize)")
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
     // Private helpers
     // ──────────────────────────────────────────────────────────────────────────
 
     private fun ship(payload: BaseEvent) {
-        try {
-            val body = buildPayload(payload).toString()
-            sendRequest(body)
-        } catch (e: Exception) {
-            if (debug) Log.e(TAG, "Failed to send [${payload.type}]: ${e.message}", e)
+        val body = buildPayload(payload).toString()
+        val shouldFlush = synchronized(batchLock) {
+            batch.add(body)
+            batch.size >= batchSize
         }
+        if (shouldFlush) flush()
+    }
+
+    private fun drainRetryQueue() {
+        if (retryQueue.isEmpty()) return
+        val toRetry = mutableListOf<String>()
+        repeat(batchSize) { toRetry.add(retryQueue.poll() ?: return@repeat) }
+        if (toRetry.isEmpty()) return
+        try {
+            sendBatch(toRetry)
+            if (debug) Log.d(TAG, "Retried ${toRetry.size} events (${retryQueue.size} remaining in queue)")
+        } catch (e: Exception) {
+            toRetry.forEach { enqueue(it) }
+            throw e
+        }
+    }
+
+    private fun enqueue(body: String) {
+        if (retryQueue.size >= maxQueueSize) {
+            retryQueue.poll()
+            if (debug) Log.w(TAG, "Retry queue full — dropped oldest event")
+        }
+        retryQueue.offer(body)
     }
 
     /**
@@ -124,6 +211,15 @@ class MoveoOneDestination(
         }
     }
 
+    private fun sendBatch(events: List<String>) {
+        val body = buildJsonObject {
+            put("events", buildJsonArray {
+                events.forEach { add(Json.parseToJsonElement(it)) }
+            })
+        }.toString()
+        sendRequest(body)
+    }
+
     private fun sendRequest(body: String) {
         val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
@@ -151,6 +247,8 @@ class MoveoOneDestination(
                 Log.d(TAG, "← Response: $responseBody")
                 Log.d(TAG, "──────────────────────────────────────")
             }
+            if (code in 400..499) return            // client error — do not retry
+            if (code !in 200..299) throw IOException("HTTP $code") // server error — will be retried
         } finally {
             conn.disconnect()
         }
