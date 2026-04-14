@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Moveo + Segment Sample</string>
+
+    <string name="header_title">Moveo One · Segment Sample</string>
+    <string name="header_subtitle">Tap a button — the event goes to Segment AND Moveo One</string>
+
+    <string name="section_user">USER</string>
+    <string name="section_track">TRACK EVENTS</string>
+    <string name="section_screen">SCREEN EVENTS</string>
+    <string name="section_group">GROUP</string>
+    <string name="section_log">EVENT LOG</string>
+
+    <string name="label_anonymous_id">Anonymous ID</string>
+    <string name="log_empty">No events fired yet — tap a button above.</string>
+
+    <string name="btn_identify">Identify User</string>
+    <string name="btn_track_view_product">Track: Product Viewed</string>
+    <string name="btn_track_add_to_cart">Track: Add to Cart</string>
+    <string name="btn_track_purchase">Track: Order Completed</string>
+    <string name="btn_screen_home">Screen: Home</string>
+    <string name="btn_screen_product">Screen: Product</string>
+    <string name="btn_group">Group: Acme Corp</string>
+</resources>

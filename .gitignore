@@ -1,0 +1,40 @@
+# Gradle
+.gradle/
+build/
+**/build/
+gradle-app.setting
+!gradle-wrapper.jar
+.gradletasknamecache
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Kotlin
+*.class
+*.kotlin_module
+
+# Generated
+gen/
+generated/
+out/
+
+# Keystore / signing
+*.jks
+*.keystore
+*.p12
+release/
+keystore.properties
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

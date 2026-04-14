@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MoveoSegmentSample" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/moveo_primary</item>
+        <item name="colorPrimaryVariant">@color/moveo_primary_dark</item>
+        <item name="colorSecondary">@color/moveo_secondary</item>
+        <item name="android:statusBarColor">@color/moveo_primary_dark</item>
+        <item name="android:windowBackground">@color/background</item>
+    </style>
+</resources>

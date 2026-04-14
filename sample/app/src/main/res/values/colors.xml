@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="moveo_primary">#1A56DB</color>
+    <color name="moveo_primary_dark">#1346C0</color>
+    <color name="moveo_secondary">#6C63FF</color>
+
+    <color name="background">#F3F4F8</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="log_background">#F0F4FF</color>
+
+    <color name="text_primary">#1A1A2E</color>
+    <color name="text_secondary">#6B7280</color>
+</resources>
