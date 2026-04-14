@@ -18,8 +18,6 @@ class SampleApp : Application() {
             context = applicationContext
         ) {
             trackApplicationLifecycleEvents = true
-            // To stop sending events to Segment and only send to Moveo One:
-            // autoAddSegmentDestination = false
         }
 
         analytics.add(plugin = MoveoOneDestination(

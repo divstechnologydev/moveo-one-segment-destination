@@ -25,8 +25,6 @@ implementation 'com.segment.analytics.kotlin:android:1.24.1'
 
 ## Usage
 
-### 1. Mirror Segment events to Moveo One
-
 Initialise Segment as you normally would, then add the plugin. That's it — every `track`, `screen`, `identify`, and `group` call will be forwarded to Moveo One automatically.
 
 ```kotlin
@@ -36,20 +34,6 @@ val analytics = Analytics("YOUR_SEGMENT_WRITE_KEY", applicationContext) {
 
 analytics.add(plugin = MoveoOneDestination(apiKey = "YOUR_MOVEO_API_KEY"))
 ```
-
-### 2. Send events only to Moveo One (bypass Segment)
-
-Set `autoAddSegmentDestination = false` to stop the SDK from forwarding events to Segment's own pipeline. The `MoveoOneDestination` plugin still receives everything.
-
-```kotlin
-val analytics = Analytics("YOUR_SEGMENT_WRITE_KEY", applicationContext) {
-    autoAddSegmentDestination = false
-}
-
-analytics.add(plugin = MoveoOneDestination(apiKey = "YOUR_MOVEO_API_KEY"))
-```
-
-Your existing `analytics.track(...)` calls remain unchanged in both cases.
 
 ---
 
@@ -83,7 +67,7 @@ MoveoOneDestination(
 
 ## Sample app
 
-The [`sample/`](sample/) directory contains a minimal Android app that demonstrates both integration modes. To run it:
+The [`sample/`](sample/) directory contains a minimal Android app that demonstrates the integration. To run it:
 
 1. Open `sample/` in Android Studio.
 2. In `SampleApp.kt` replace `YOUR_SEGMENT_WRITE_KEY` and `YOUR_MOVEO_API_KEY` with your actual keys.
