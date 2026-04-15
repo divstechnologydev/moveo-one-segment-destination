@@ -10,6 +10,8 @@ import com.segment.analytics.kotlin.core.TrackEvent
 import com.segment.analytics.kotlin.core.platform.EventPlugin
 import com.segment.analytics.kotlin.core.platform.Plugin
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -43,6 +45,12 @@ import java.util.concurrent.TimeUnit
  * @param batchSize       Number of events that trigger an immediate flush (default 20).
  * @param flushIntervalMs How often the batch is flushed automatically in ms (default 30s).
  * @param maxQueueSize    Max events held in the retry queue while offline (default 50).
+ * @param filter          Optional property filter. When provided, only events whose
+ *                        properties/traits contain ALL specified keys with a matching
+ *                        value are forwarded. Null (default) forwards every event.
+ *
+ *                        Example — forward only events where screen_name is one of the listed values:
+ *                          filter = mapOf("screen_name" to listOf("Home", "Checkout"))
  */
 class MoveoOneDestination(
     private val apiKey: String,
@@ -50,7 +58,8 @@ class MoveoOneDestination(
     private val debug: Boolean = false,
     private val batchSize: Int = 20,
     private val flushIntervalMs: Long = 30_000,
-    private val maxQueueSize: Int = 50
+    private val maxQueueSize: Int = 50,
+    private val filter: Map<String, List<String>>? = null
 ) : EventPlugin {
 
     override val type = Plugin.Type.Enrichment
@@ -144,12 +153,35 @@ class MoveoOneDestination(
     // ──────────────────────────────────────────────────────────────────────────
 
     private fun ship(payload: BaseEvent) {
+        if (!passesFilter(payload)) return
         val body = buildPayload(payload).toString()
         val shouldFlush = synchronized(batchLock) {
             batch.add(body)
             batch.size >= batchSize
         }
         if (shouldFlush) flush()
+    }
+
+    /**
+     * Returns true if the event should be forwarded to Moveo One.
+     * When no filter is set all events pass. When a filter is set, all specified
+     * key/value conditions must match against the event's properties or traits.
+     */
+    private fun passesFilter(payload: BaseEvent): Boolean {
+        val f = filter?.takeIf { it.isNotEmpty() } ?: return true
+
+        val properties: JsonObject = when (payload) {
+            is TrackEvent    -> payload.properties
+            is ScreenEvent   -> payload.properties
+            is IdentifyEvent -> payload.traits
+            is GroupEvent    -> payload.traits
+            else             -> return true
+        }
+
+        return f.all { (key, allowedValues) ->
+            val value = (properties[key] as? JsonPrimitive)?.content
+            value != null && value in allowedValues
+        }
     }
 
     private fun drainRetryQueue() {
