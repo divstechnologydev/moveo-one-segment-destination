@@ -110,6 +110,9 @@ analytics.add(plugin = MoveoOneDestination(
 | `analytics.screen(...)` | ✅ |
 | `analytics.identify(...)` | ✅ |
 | `analytics.group(...)` | ✅ |
+| `analytics.alias(...)` | ✅ common fields only |
+
+> `alias` is an advanced call used to merge two user identities (e.g. anonymous → known user after sign-up). Only the common Segment fields are forwarded — if your Moveo One integration requires alias-specific fields, override the `alias()` method in `MoveoOneDestination`.
 
 ---
 
