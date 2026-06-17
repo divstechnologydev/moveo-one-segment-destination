@@ -12,11 +12,16 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import java.io.IOException
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
@@ -213,6 +218,7 @@ class MoveoOneDestination(
         put("messageId", payload.messageId)
         put("anonymousId", payload.anonymousId)
         put("timestamp", payload.timestamp)
+        put("originalTimestamp", payload.timestamp)
 
         payload.userId
             .takeIf { it.isNotBlank() }
@@ -242,13 +248,29 @@ class MoveoOneDestination(
     }
 
     private fun sendBatch(events: List<String>) {
+        val sentAt = currentIso8601Utc()
         val body = buildJsonObject {
             put("events", buildJsonArray {
-                events.forEach { add(Json.parseToJsonElement(it)) }
+                events.forEach { raw ->
+                    val obj = Json.parseToJsonElement(raw).jsonObject
+                    if (obj.containsKey("sentAt")) {
+                        add(obj)                                   // already set — don't overwrite
+                    } else {
+                        add(buildJsonObject {
+                            obj.forEach { (k, v) -> put(k, v) }    // preserve existing fields
+                            put("sentAt", sentAt)
+                        })
+                    }
+                }
             })
         }.toString()
         sendRequest(body)
     }
+
+    private fun currentIso8601Utc(): String =
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+            .apply { timeZone = TimeZone.getTimeZone("UTC") }
+            .format(Date())
 
     private fun sendRequest(body: String) {
         val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
