@@ -44,10 +44,15 @@ analytics.add(plugin = MoveoOneDestination(apiKey = "YOUR_MOVEO_API_KEY"))
 | `apiKey` | `String` | — | **Required.** Your Moveo One API key. |
 | `endpoint` | `String` | Production URL | Override the ingestion endpoint. |
 | `debug` | `Boolean` | `false` | Print request and response details to Logcat. |
+| `gzip` | `Boolean` | `true` | Gzip-compress upload bodies (`Content-Encoding: gzip`). Set `false` to send plain JSON. |
 | `batchSize` | `Int` | `20` | Number of events that trigger an immediate flush. |
 | `flushIntervalMs` | `Long` | `30000` | How often the batch is flushed automatically (ms). |
-| `maxQueueSize` | `Int` | `50` | Max events held in the retry queue while offline. |
+| `maxQueueBytes` | `Long` | `5000000` | Max bytes of queued events held on disk. When exceeded, the oldest batches are evicted. |
+| `maxQueueAgeMs` | `Long` | `604800000` | Max age (ms) of a queued batch before it is evicted (default 7 days). |
+| `maxRetries` | `Int` | `10` | Max upload attempts for a batch before it is dropped. |
 | `filter` | `Map<String, List<String>>?` | `null` | Property filter — see [Filtering events](#filtering-events) below. |
+
+> Most apps never set any of these. The one knob you may want is `flushIntervalMs` (push interval) or `batchSize`. Everything else has production defaults.
 
 ```kotlin
 MoveoOneDestination(
@@ -55,6 +60,20 @@ MoveoOneDestination(
     debug    = true   // enable Logcat output during development
 )
 ```
+
+---
+
+## Reliability & delivery
+
+The plugin is built to not lose events on a flaky mobile connection — clients just add it as a destination, nothing else.
+
+- **Durable queue** — events are written to disk (under the app's private files dir) *before* any network call, so they survive app kills, crashes, and reboots. They are deleted only after the server confirms receipt (HTTP `2xx`). The Android `Context` is auto-detected from your `Analytics` instance — you do **not** pass it. (If no Context is available, e.g. in unit tests, it transparently falls back to an in-memory queue.)
+- **Batching & flushing** — events are sent when `batchSize` is reached, a request-size limit is hit, the `flushIntervalMs` timer fires, or the app goes to the background.
+- **Smart retries** — failed uploads retry with exponential backoff + jitter. HTTP `429` and the `Retry-After` header are honoured; `5xx`/network errors retry; non-`429` `4xx` responses are treated as permanent and dropped. A batch is dropped after `maxRetries` attempts so one bad batch can't block the queue.
+- **Bounded** — the on-disk queue is capped by `maxQueueBytes` and `maxQueueAgeMs`; when over budget the **oldest** batches are evicted (logged when `debug = true`).
+- **Compression** — uploads are gzip-compressed by default (`Content-Encoding: gzip`) to save bandwidth on mobile data. The backend handles both gzip and plain JSON; set `gzip = false` to disable.
+
+> **Delivery is at-least-once.** After a crash a batch may be sent twice. Each event carries a stable `messageId`; the Moveo One backend de-duplicates on it.
 
 ---
 
