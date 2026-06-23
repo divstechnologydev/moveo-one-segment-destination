@@ -33,6 +33,7 @@ import java.util.TimeZone
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
+import java.util.zip.GZIPOutputStream
 
 /**
  * Moveo One Destination Plugin for Segment Analytics (Kotlin)
@@ -72,6 +73,8 @@ import java.util.concurrent.TimeUnit
  * @param apiKey          Your Moveo One API key.
  * @param endpoint        Override the default API endpoint (optional).
  * @param debug           When true, request and response details are printed to Logcat.
+ * @param gzip            When true (default), upload bodies are gzip-compressed and sent
+ *                        with `Content-Encoding: gzip`. Set false to send plain JSON.
  * @param batchSize       Number of events that trigger an immediate flush (default 20).
  * @param flushIntervalMs How often the batch is flushed automatically in ms (default 30s).
  * @param maxQueueBytes   Max bytes of queued events held on disk (default 5 MB). When
@@ -89,6 +92,7 @@ class MoveoOneDestination(
     private val apiKey: String,
     private val endpoint: String = "https://api.moveo.one/api/analytic/external/segment-destination",
     private val debug: Boolean = false,
+    private val gzip: Boolean = true,
     private val batchSize: Int = 20,
     private val flushIntervalMs: Long = 30_000,
     private val maxQueueBytes: Long = 5_000_000,
@@ -379,17 +383,22 @@ class MoveoOneDestination(
             connectTimeout = CONNECT_TIMEOUT_MS
             readTimeout = READ_TIMEOUT_MS
             doOutput = true
+            if (gzip) setRequestProperty("Content-Encoding", "gzip")
         }
 
         if (debug) {
             Log.d(TAG, "──────────────────────────────────────")
-            Log.d(TAG, "→ POST $endpoint")
+            Log.d(TAG, "→ POST $endpoint${if (gzip) " (gzip)" else ""}")
             Log.d(TAG, "→ Authorization: ${apiKey.take(8)}…")
             Log.d(TAG, "→ Body: $body")
         }
 
         try {
-            OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(body) }
+            if (gzip) {
+                GZIPOutputStream(conn.outputStream).use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            } else {
+                OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(body) }
+            }
             val code = conn.responseCode
             val retryAfter = conn.getHeaderField("Retry-After")?.trim()?.toIntOrNull()
             if (debug) {
